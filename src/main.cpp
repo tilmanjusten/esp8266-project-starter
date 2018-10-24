@@ -1,37 +1,12 @@
+#include "secrets.h"
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
-#include <FS.h>
 #include <WiFiUdp.h>
 #include <ESP8266OTASetup.h>
+#include <ESP8266SmartHomeWebserver.h>
 
-#include "secrets.h"
-
-ESP8266WebServer server(HTTP_PORT);
 ESP8266OTASetup ota;
-
-void handleWebRequests404()
-{
-    String message = "File Not Detected\n\n";
-    message += "URI: ";
-    message += server.uri();
-    message += "\nMethod: ";
-    message += (server.method() == HTTP_GET) ? "GET" : "POST";
-    message += "\nArguments: ";
-    message += server.args();
-    message += "\n";
-
-    for (uint8_t i = 0; i < server.args(); i++)
-    {
-        message += " NAME:" + server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
-    }
-
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(404, "text/plain", message);
-
-    Serial.println(message);
-}
+ESP8266SmartHomeWebserver webserver;
 
 void wifiSetup()
 {
@@ -55,78 +30,15 @@ void wifiSetup()
     Serial.println(WiFi.localIP());
 }
 
-void setupWebserver()
+void webserverSetup()
 {
-    if (MDNS.begin("Door Station"))
-    {
-        Serial.println("MDNS responder started");
-    }
+    // init server
+    webserver.setup();
 
-    // Overview
-    server.serveStatic("/", SPIFFS, "/www/index.html");
-    server.serveStatic("/index.html", SPIFFS, "/www/index.html");
-    server.serveStatic("/styles.css", SPIFFS, "/www/styles.css");
-    server.serveStatic("/scripts.js", SPIFFS, "/www/scripts.js");
-
-    // Debug
-    server.on("/state", []() {
-        server.send(200, "text/plain", "");
+    // do some additional requests
+    webserver.on("/new", []() {
+        webserver.send(200, "text/plain", "hello world!");
     });
-
-    // 404
-    server.onNotFound(handleWebRequests404);
-
-    // Start server
-    server.begin();
-    Serial.println("HTTP server started");
-}
-
-bool loadFromSpiffs(String path)
-{
-    String dataType = "text/plain";
-
-    if (path.endsWith("/"))
-        path += "index.html";
-
-    if (path.endsWith(".src"))
-        path = path.substring(0, path.lastIndexOf("."));
-    else if (path.endsWith(".html"))
-        dataType = "text/html";
-    else if (path.endsWith(".htm"))
-        dataType = "text/html";
-    else if (path.endsWith(".css"))
-        dataType = "text/css";
-    else if (path.endsWith(".js"))
-        dataType = "application/javascript";
-    else if (path.endsWith(".png"))
-        dataType = "image/png";
-    else if (path.endsWith(".gif"))
-        dataType = "image/gif";
-    else if (path.endsWith(".jpg"))
-        dataType = "image/jpeg";
-    else if (path.endsWith(".ico"))
-        dataType = "image/x-icon";
-    else if (path.endsWith(".xml"))
-        dataType = "text/xml";
-    else if (path.endsWith(".pdf"))
-        dataType = "application/pdf";
-    else if (path.endsWith(".zip"))
-        dataType = "application/zip";
-
-    File dataFile = SPIFFS.open(path.c_str(), "r");
-
-    if (server.hasArg("download"))
-    {
-        dataType = "application/octet-stream";
-    }
-
-    if (server.streamFile(dataFile, dataType) != dataFile.size())
-    {
-    }
-
-    dataFile.close();
-
-    return true;
 }
 
 void setup()
@@ -141,8 +53,7 @@ void setup()
     ota.setup();
 
     // Webserver
-    SPIFFS.begin();
-    setupWebserver();
+    webserverSetup();
 }
 
 void loop()
@@ -151,5 +62,5 @@ void loop()
     ota.handle();
 
     // Webserver
-    server.handleClient();
+    webserver.handle();
 }
