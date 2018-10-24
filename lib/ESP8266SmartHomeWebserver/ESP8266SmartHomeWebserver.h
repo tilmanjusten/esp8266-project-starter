@@ -11,9 +11,6 @@
 
 class ESP8266SmartHomeWebserver
 {
-  // private:
-  // ESP8266WebServer espWebServer;
-
 public:
   void setup();
   void handle();
